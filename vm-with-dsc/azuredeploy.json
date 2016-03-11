@@ -102,7 +102,7 @@
     "vnetID": "[resourceId('Microsoft.Network/virtualNetworks',variables('virtualNetworkName'))]",
     "subnetRef": "[concat(variables('vnetID'),'/subnets/',parameters('subnetName'))]",
     "configurationMode": "ApplyAndAutoCorrect",
-    "modulesUrl": "https://github.com/AddLevel/ARMTemplates/tree/master/vm-with-dsc/ConfigureLCMforOMS.zip",
+    "modulesUrl": "https://github.com/AddLevel/ARMTemplates/raw/master/vm-with-dsc/ConfigureLCMforOMS.zip",
     "configurationFunction": "ConfigureLCMforOMS.ps1\\ConfigureLCMforOMS",
     "configurationModeFrequencyMins": 15,
     "refreshFrequencyMins": 30,
