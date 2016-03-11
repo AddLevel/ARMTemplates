@@ -239,7 +239,7 @@
     "properties": {
         "publisher": "Microsoft.Powershell",
         "type": "DSC",
-        "typeHandlerVersion": "2.14",
+        "typeHandlerVersion": "2.8",
         "autoUpgradeMinorVersion": true,
         "protectedSettings": {
             "Items": {
