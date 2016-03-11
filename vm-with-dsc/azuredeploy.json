@@ -1,124 +1,284 @@
 {
-    "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
-    "contentVersion": "1.0.0.0",
-    "parameters": {
-        "vmName": {
-            "type": "string",
-            "metadata": {
-                "description": "Name of the existing VM to apply the DSC configuration to"
-            }
-        },
-        "registrationKey": {
-            "type": "securestring",
-            "metadata": {
-                "description": "Registration key to use to onboard to the Azure Automation DSC pull/reporting server"
-            }
-        },
-        "registrationUrl": {
-            "type": "string",
-            "metadata": {
-                "description": "Registration url of the Azure Automation DSC pull/reporting server"
-            }
-        },
-        "nodeConfigurationName": {
-            "type": "string",
-            "metadata": {
-                "description": "The name of the node configuration, on the Azure Automation DSC pull server, that this node will be configured as"
-            }
-        },        
-        "timestamp": {
-            "type": "string",
-            "metadata": {
-                "description": "The current datetime, as a string, to force the request to go through ARM even if all fields are the same as last ARM deployment of this template; example in parameters file is in MM/dd/yyyy H:mm:ss tt format"
-            }
-        }
+  "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "adminUsername": {
+      "type": "string",
+      "metadata": {
+        "description": "Username for the Virtual Machine."
+      }
     },
-    "variables": {
-        "configurationMode": "ApplyAndAutoCorrect",
-        "modulesUrl": "https://github.com/Azure/azure-quickstart-templates/raw/master/dsc-extension-azure-automation-pullserver/UpdateLCMforAAPull.zip",
-        "configurationFunction": "ConfigureLCMforOMS.ps1\\ConfigureLCMforOMS",
-        "configurationModeFrequencyMins": 15,
-        "refreshFrequencyMins": 30,
-        "rebootNodeIfNeeded": true,
-        "actionAfterReboot": "ContinueConfiguration",
-        "allowModuleOverwrite": false
+    "adminPassword": {
+      "type": "securestring",
+      "metadata": {
+        "description": "Password for the Virtual Machine."
+      }
     },
-    "resources": [
+    "vmName": {
+      "type": "string",
+      "metadata": {
+        "description": "Name for the Virtual Machine."
+      }
+    },
+    "addressPrefix": {
+      "type": "string",
+      "defaultValue": "10.0.0.0/16",
+      "metadata": {
+        "description": "Address Prefix for the Virtual Machine."
+      }
+    },
+    "subnetName": {
+      "type": "string",
+      "defaultValue": "[concat(resourceGroup().name,'_Subnet')]",
+      "metadata": {
+        "description": "Subnet Name for the Virtual Machine."
+      }
+    },
+    "subnetPrefix": {
+      "type": "string",
+      "defaultValue": "10.0.0.0/24",
+      "metadata": {
+        "description": "Subnet Prefix for the Virtual Machine."
+      }
+    },
+	"dnsLabelPrefix": {
+	   "type": "string",
+	   "metadata": {
+		  "description": "DNS Label for the Public IP. Must be lowercase. It should match with the following regular expression: ^[a-z][a-z0-9-]{1,61}[a-z0-9]$ or it will raise an error."
+	   }
+	},
+    "windowsOSVersion": {
+      "type": "string",
+      "defaultValue": "2012-R2-Datacenter",
+      "allowedValues": [
+        "2008-R2-SP1",
+        "2012-Datacenter",
+        "2012-R2-Datacenter",
+        "Windows-Server-Technical-Preview"
+      ],
+      "metadata": {
+        "description": "The Windows version for the VM. This will pick a fully patched image of this given Windows version. Allowed values: 2008-R2-SP1, 2012-Datacenter, 2012-R2-Datacenter, Windows-Server-Technical-Preview."
+      }
+    }
+  },
+  "variables": {
+	"storageAccountName": "[concat(uniquestring(resourceGroup().id), 'standardsa')]",
+	"apiVersion": "2015-06-15",
+    "imagePublisher": "MicrosoftWindowsServer",
+    "imageOffer": "WindowsServer",
+    "OSDiskName": "osdiskforwindowssimple",
+    "nicName": "[concat(parameters('vmName'),'_Nic')]",
+    "storageAccountType": "Standard_GRS",
+    "publicIPAddressName": "[concat(parameters('vmName'),'_Ip')]",
+    "publicIPAddressType": "Dynamic",
+    "vmStorageAccountContainerName": "vhds",
+    "vmSize": "Standard_DS1",
+    "virtualNetworkName": "[concat(resourceGroup().name,'_Net')]",
+    "resourceId": "[resourceGroup().id]",
+    "vnetID": "[resourceId('Microsoft.Network/virtualNetworks',variables('virtualNetworkName'))]",
+    "subnetRef": "[concat(variables('vnetID'),'/subnets/',parameters('subnetName'))]",
+    "configurationMode": "ApplyAndAutoCorrect",
+    "modulesUrl": "https://github.com/AddLevel/ARMTemplates/tree/master/vm-with-dsc/ConfigureLCMforOMS.zip",
+    "configurationFunction": "ConfigureLCMforOMS.ps1\\ConfigureLCMforOMS",
+    "configurationModeFrequencyMins": 15,
+    "refreshFrequencyMins": 30,
+    "rebootNodeIfNeeded": true,
+    "actionAfterReboot": "ContinueConfiguration",
+    "allowModuleOverwrite": false
+  },
+  "resources": [
     {
-        "type": "Microsoft.Compute/virtualMachines/extensions",
-        "name": "[concat(parameters('vmName'),'/Microsoft.Powershell.DSC')]",
-        "apiVersion": "2015-06-15",
-        "location": "[resourceGroup().location]",
-        "properties": {
-            "publisher": "Microsoft.Powershell",
-            "type": "DSC",
-            "typeHandlerVersion": "2.14",
-            "autoUpgradeMinorVersion": true,
-            "protectedSettings": {
-                "Items": {
-                    "registrationKeyPrivate": "[parameters('registrationKey')]"
-                }
-            },
-            "settings": {
-                "ModulesUrl": "[variables('modulesUrl')]",
-                "SasToken": "",
-                "ConfigurationFunction": "[variables('configurationFunction')]",
-                "Properties": [
-                    {
-                        "Name": "RegistrationKey",
-                        "Value": {
-                            "UserName": "PLACEHOLDER_DONOTUSE",
-                            "Password": "PrivateSettingsRef:registrationKeyPrivate"
-                        },
-                        "TypeName": "System.Management.Automation.PSCredential"
-                    },
-                    {
-                        "Name": "RegistrationUrl",
-                        "Value": "[parameters('registrationUrl')]",
-                        "TypeName": "System.String"
-                    },
-                    {
-                        "Name": "NodeConfigurationName",
-                        "Value": "[parameters('nodeConfigurationName')]",
-                        "TypeName": "System.String"
-                    },
-                    {
-                        "Name": "ConfigurationMode",
-                        "Value": "[variables('configurationMode')]",
-                        "TypeName": "System.String"
-                    },
-                    {
-                        "Name": "ConfigurationModeFrequencyMins",
-                        "Value": "[variables('configurationModeFrequencyMins')]",
-                        "TypeName": "System.Int32"
-                    },
-                    {
-                        "Name": "RefreshFrequencyMins",
-                        "Value": "[variables('refreshFrequencyMins')]",
-                        "TypeName": "System.Int32"
-                    },
-                    {
-                        "Name": "RebootNodeIfNeeded",
-                        "Value": "[variables('rebootNodeIfNeeded')]",
-                        "TypeName": "System.Boolean"
-                    },
-                    {
-                        "Name": "ActionAfterReboot",
-                        "Value":  "[variables('actionAfterReboot')]",
-                        "TypeName": "System.String"
-                    },
-                    {
-                        "Name": "AllowModuleOverwrite",
-                        "Value": "[variables('allowModuleOverwrite')]",
-                        "TypeName": "System.Boolean"
-                    },
-                    {
-                        "Name": "Timestamp",
-                        "Value": "[parameters('timestamp')]",
-                        "TypeName": "System.String"
-                    }
-                ]
-            }
+      "type": "Microsoft.Storage/storageAccounts",
+      "name": "[variables('storageAccountName')]",
+      "apiVersion": "[variables('apiVersion')]",
+      "location": "[resourceGroup().location]",
+      "properties": {
+        "accountType": "[variables('storageAccountType')]"
+      }
+    },
+    {
+      "apiVersion": "[variables('apiVersion')]",
+      "type": "Microsoft.Network/publicIPAddresses",
+      "name": "[variables('publicIPAddressName')]",
+      "location": "[resourceGroup().location]",
+      "properties": {
+        "publicIPAllocationMethod": "[variables('publicIPAddressType')]",
+        "dnsSettings": {
+          "domainNameLabel": "[parameters('dnsLabelPrefix')]"
         }
+      }
+    },
+    {
+      "apiVersion": "[variables('apiVersion')]",
+      "type": "Microsoft.Network/virtualNetworks",
+      "name": "[variables('virtualNetworkName')]",
+      "location": "[resourceGroup().location]",
+      "properties": {
+        "addressSpace": {
+          "addressPrefixes": [
+            "[parameters('addressPrefix')]"
+          ]
+        },
+        "subnets": [
+          {
+            "name": "[parameters('subnetName')]",
+            "properties": {
+              "addressPrefix": "[parameters('subnetPrefix')]"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "apiVersion": "[variables('apiVersion')]",
+      "type": "Microsoft.Network/networkInterfaces",
+      "name": "[variables('nicName')]",
+      "location": "[resourceGroup().location]",
+      "dependsOn": [
+        "[concat('Microsoft.Network/publicIPAddresses/', variables('publicIPAddressName'))]",
+        "[concat('Microsoft.Network/virtualNetworks/', variables('virtualNetworkName'))]"
+      ],
+      "properties": {
+        "ipConfigurations": [
+          {
+            "name": "ipconfig1",
+            "properties": {
+              "privateIPAllocationMethod": "Dynamic",
+              "publicIPAddress": {
+                "id": "[resourceId('Microsoft.Network/publicIPAddresses',variables('publicIPAddressName'))]"
+              },
+              "subnet": {
+                "id": "[variables('subnetRef')]"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "apiVersion": "2015-06-15",
+      "type": "Microsoft.Compute/virtualMachines",
+      "name": "[parameters('vmName')]",
+      "location": "[resourceGroup().location]",
+      "dependsOn": [
+        "[concat('Microsoft.Storage/storageAccounts/', variables('storageAccountName'))]",
+        "[concat('Microsoft.Network/networkInterfaces/', variables('nicName'))]"
+      ],
+      "properties": {
+        "hardwareProfile": {
+          "vmSize": "[variables('vmSize')]"
+        },
+        "osProfile": {
+          "computername": "[parameters('vmName')]",
+          "adminUsername": "[parameters('adminUsername')]",
+          "adminPassword": "[parameters('adminPassword')]"
+        },
+        "storageProfile": {
+          "imageReference": {
+            "publisher": "[variables('imagePublisher')]",
+            "offer": "[variables('imageOffer')]",
+            "sku": "[parameters('windowsOSVersion')]",
+            "version": "latest"
+          },
+          "osDisk": {
+            "name": "osdisk",
+            "vhd": {
+              "uri": "[concat('http://',variables('storageAccountName'),'.blob.core.windows.net/',variables('vmStorageAccountContainerName'),'/',variables('OSDiskName'),'.vhd')]"
+            },
+            "caching": "ReadWrite",
+            "createOption": "FromImage"
+          }
+        },
+        "networkProfile": {
+          "networkInterfaces": [
+            {
+              "id": "[resourceId('Microsoft.Network/networkInterfaces',variables('nicName'))]"
+            }
+          ]
+        },
+        "diagnosticsProfile": {
+          "bootDiagnostics": {
+             "enabled": "true",
+             "storageUri": "[concat('http://',variables('storageAccountName'),'.blob.core.windows.net')]"
+          }
+        }
+      }
+    },
+    {
+    "type": "Microsoft.Compute/virtualMachines/extensions",
+    "name": "[concat(parameters('vmName'),'/Microsoft.Powershell.DSC')]",
+    "apiVersion": "2015-06-15",
+    "location": "[resourceGroup().location]",
+    "properties": {
+        "publisher": "Microsoft.Powershell",
+        "type": "DSC",
+        "typeHandlerVersion": "2.14",
+        "autoUpgradeMinorVersion": true,
+        "protectedSettings": {
+            "Items": {
+                "registrationKeyPrivate": "[parameters('registrationKey')]"
+            }
+        },
+        "settings": {
+            "ModulesUrl": "[variables('modulesUrl')]",
+            "SasToken": "",
+            "ConfigurationFunction": "[variables('configurationFunction')]",
+            "Properties": [
+                {
+                    "Name": "RegistrationKey",
+                    "Value": {
+                        "UserName": "PLACEHOLDER_DONOTUSE",
+                        "Password": "PrivateSettingsRef:registrationKeyPrivate"
+                    },
+                    "TypeName": "System.Management.Automation.PSCredential"
+                },
+                {
+                    "Name": "RegistrationUrl",
+                    "Value": "[parameters('registrationUrl')]",
+                    "TypeName": "System.String"
+                },
+                {
+                    "Name": "NodeConfigurationName",
+                    "Value": "[parameters('nodeConfigurationName')]",
+                    "TypeName": "System.String"
+                },
+                {
+                    "Name": "ConfigurationMode",
+                    "Value": "[variables('configurationMode')]",
+                    "TypeName": "System.String"
+                },
+                {
+                    "Name": "ConfigurationModeFrequencyMins",
+                    "Value": "[variables('configurationModeFrequencyMins')]",
+                    "TypeName": "System.Int32"
+                },
+                {
+                    "Name": "RefreshFrequencyMins",
+                    "Value": "[variables('refreshFrequencyMins')]",
+                    "TypeName": "System.Int32"
+                },
+                {
+                    "Name": "RebootNodeIfNeeded",
+                    "Value": "[variables('rebootNodeIfNeeded')]",
+                    "TypeName": "System.Boolean"
+                },
+                {
+                    "Name": "ActionAfterReboot",
+                    "Value":  "[variables('actionAfterReboot')]",
+                    "TypeName": "System.String"
+                },
+                {
+                    "Name": "AllowModuleOverwrite",
+                    "Value": "[variables('allowModuleOverwrite')]",
+                    "TypeName": "System.Boolean"
+                },
+                {
+                    "Name": "Timestamp",
+                    "Value": "[parameters('timestamp')]",
+                    "TypeName": "System.String"
+                }
+            ]
+        }
+      }
     }]
 }
