@@ -53,8 +53,7 @@
       "allowedValues": [
         "2008-R2-SP1",
         "2012-Datacenter",
-        "2012-R2-Datacenter",
-        "Windows-Server-Technical-Preview"
+        "2012-R2-Datacenter"
       ],
       "metadata": {
         "description": "The Windows version for the VM. This will pick a fully patched image of this given Windows version. Allowed values: 2008-R2-SP1, 2012-Datacenter, 2012-R2-Datacenter, Windows-Server-Technical-Preview."
@@ -86,23 +85,23 @@
     }
   },
   "variables": {
-	"storageAccountName": "[concat(uniquestring(resourceGroup().id), 'standardsa')]",
+	"storageAccountName": "[toLower(concat(parameters('vmName'),'standardsa'))]",
 	"apiVersion": "2015-06-15",
     "imagePublisher": "MicrosoftWindowsServer",
     "imageOffer": "WindowsServer",
     "OSDiskName": "osdiskforwindowssimple",
     "nicName": "[concat(parameters('vmName'),'_Nic')]",
-    "storageAccountType": "Standard_GRS",
+    "storageAccountType": "Standard_LRS",
     "publicIPAddressName": "[concat(parameters('vmName'),'_Ip')]",
     "publicIPAddressType": "Dynamic",
     "vmStorageAccountContainerName": "vhds",
-    "vmSize": "Standard_DS1",
+    "vmSize": "Standard_A1",
     "virtualNetworkName": "[concat(resourceGroup().name,'_Net')]",
     "resourceId": "[resourceGroup().id]",
     "vnetID": "[resourceId('Microsoft.Network/virtualNetworks',variables('virtualNetworkName'))]",
     "subnetRef": "[concat(variables('vnetID'),'/subnets/',parameters('subnetName'))]",
     "configurationMode": "ApplyAndAutoCorrect",
-    "modulesUrl": "https://github.com/AddLevel/ARMTemplates/tree/master/vm-with-dsc/ConfigureLCMforOMS.zip",
+    "modulesUrl": "https://github.com/AddLevel/ARMTemplates/raw/master/vm-with-dsc/ConfigureLCMforOMS.zip",
     "configurationFunction": "ConfigureLCMforOMS.ps1\\ConfigureLCMforOMS",
     "configurationModeFrequencyMins": 15,
     "refreshFrequencyMins": 30,
@@ -121,7 +120,7 @@
       }
     },
     {
-      "apiVersion": "[variables('apiVersion')]",
+      "apiVersion": "2015-05-01-preview",
       "type": "Microsoft.Network/publicIPAddresses",
       "name": "[variables('publicIPAddressName')]",
       "location": "[resourceGroup().location]",
@@ -133,7 +132,7 @@
       }
     },
     {
-      "apiVersion": "[variables('apiVersion')]",
+      "apiVersion": "2015-05-01-preview",
       "type": "Microsoft.Network/virtualNetworks",
       "name": "[variables('virtualNetworkName')]",
       "location": "[resourceGroup().location]",
@@ -150,11 +149,14 @@
               "addressPrefix": "[parameters('subnetPrefix')]"
             }
           }
-        ]
+        ],
+	"dhcpOptions": {
+          "dnsServers": [ "192.168.100.2" ]
+        }
       }
     },
     {
-      "apiVersion": "[variables('apiVersion')]",
+      "apiVersion": "2015-05-01-preview",
       "type": "Microsoft.Network/networkInterfaces",
       "name": "[variables('nicName')]",
       "location": "[resourceGroup().location]",
@@ -207,7 +209,7 @@
           "osDisk": {
             "name": "osdisk",
             "vhd": {
-              "uri": "[concat('http://',variables('storageAccountName'),'.blob.azurestack.localt/',variables('vmStorageAccountContainerName'),'/',variables('OSDiskName'),'.vhd')]"
+              "uri": "[concat('http://',variables('storageAccountName'),'.blob.azurestack.local/',variables('vmStorageAccountContainerName'),'/',variables('OSDiskName'),'.vhd')]"
             },
             "caching": "ReadWrite",
             "createOption": "FromImage"
@@ -239,7 +241,7 @@
     "properties": {
         "publisher": "Microsoft.Powershell",
         "type": "DSC",
-        "typeHandlerVersion": "2.14",
+        "typeHandlerVersion": "2.13",
         "autoUpgradeMinorVersion": true,
         "protectedSettings": {
             "Items": {
